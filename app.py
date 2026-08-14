@@ -13,7 +13,9 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "change-this-in-production")
 
-ALLOWED_DURATIONS = {1, 2, 3}
+ALLOWED_DURATIONS = {"half", "1", "2", "3"}
+DURATION_TARGETS = {"half": 2, "1": 3, "2": 6, "3": 9}
+DURATION_LABELS = {"half": "Half Day", "1": "1 Day", "2": "2 Days", "3": "3 Days"}
 INTEREST_CATEGORIES = {
     "Food": ("Food",),
     "Beach": ("Beach",),
@@ -42,11 +44,8 @@ def get_connection():
 def parse_preferences(form):
     """Validate browser input and return a clean preferences dictionary."""
     errors = []
-    try:
-        duration = int(form.get("duration", ""))
-        if duration not in ALLOWED_DURATIONS:
-            errors.append("Please choose a trip duration between 1 and 3 days.")
-    except ValueError:
+    duration = form.get("duration", "").strip()
+    if duration not in ALLOWED_DURATIONS:
         duration = None
         errors.append("Please choose your trip duration.")
 
@@ -133,7 +132,7 @@ def build_recommendations(places, preferences):
             Decimal(place["estimated_cost"]),
         ),
     )
-    target_count = preferences["duration"] * 3
+    target_count = DURATION_TARGETS[preferences["duration"]]
     selected, total = [], Decimal("0")
     for place in ranked:
         cost = Decimal(place["estimated_cost"])
@@ -189,11 +188,12 @@ def plan_trip():
     message = None
     if not recommendations:
         message = "We could not find places within this budget. Try a higher budget or choose more interests."
-    elif len(recommendations) < preferences["duration"] * 3:
+    elif len(recommendations) < DURATION_TARGETS[preferences["duration"]]:
         message = "Here are the closest matches available within your budget."
     return render_template(
         "results.html", preferences=preferences, places=recommendations,
         total_cost=total_cost, message=message,
+        duration_label=DURATION_LABELS[preferences["duration"]],
     )
 
 
